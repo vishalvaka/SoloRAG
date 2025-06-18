@@ -1,7 +1,90 @@
-# .github/workflows/ci.yml (snippet)
-- uses: actions/setup-python@v5
-  with: {python-version: '3.11'}
-- run: pip install -r requirements.txt -r requirements-dev.txt
-- run: ruff check .
-- run: mypy app
-- run: pytest -q
+name: CI
+
+on:
+  push:
+    branches: [ main, dev, feature/** ]
+  pull_request:
+    branches: [ main ]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository }}/backend
+
+jobs:
+# ───────────────────────────── 1) lint + type-check + test ─────────────────────────────
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      ollama:
+        image: ollama/ollama:latest
+        ports:
+          - 11434:11434
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install runtime & dev deps
+        run: |
+          pip install -r requirements/common.txt
+          pip install -r requirements/cpu.txt
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Ruff (lint / format)
+        run: ruff check .
+
+      - name: Mypy (static types)
+        run: mypy app
+
+      - name: Pytest
+        run: pytest -q
+
+# ───────────────────────────── 2) build & push Docker image ────────────────────────────
+  docker:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write    # needed to push to GHCR
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push backend image (CPU)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/backend.Dockerfile
+          build-args: |
+            BUILD_MODE=cpu
+            BASE_IMAGE=python:3.11-slim
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+# ───────────────────────────── 3) optional deploy stub (k8s, fly.io, etc.) ─────────────
+#  deploy:
+#    needs: docker
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: Deploy to <your-platform>
+#        run: echo "Add deployment commands or composite action here"

@@ -1,0 +1,6 @@
+# GPU-specific packages
+faiss-gpu==1.7.2
+
+# PyTorch with CUDA 12.1 support.
+# See https://pytorch.org/get-started/locally/
+torch==2.3.0 

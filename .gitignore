@@ -8,3 +8,4 @@
 .idea/
 .cursor/
 .cursor/
+__pycache__/

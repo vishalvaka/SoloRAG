@@ -1,0 +1,33 @@
+services:
+  backend:
+    image: solorag-backend-cpu
+    build:
+      context: ..
+      dockerfile: docker/backend.Dockerfile
+      args:
+        BUILD_MODE: cpu
+        BASE_IMAGE: python:3.11-slim
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../artifacts:/app/artifacts:ro
+    depends_on:
+      - ollama
+    restart: unless-stopped
+    environment:
+      - OLLAMA_URL=http://localhost:11434
+      # By default, the entrypoint uses llama3:8b-instruct-q5_K_M.
+      # Uncomment the line below to use a different model.
+      # The entrypoint script will automatically pull this model on startup.
+      # - OLLAMA_MODEL=mistral:7b-instruct-q5_K_M
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
+volumes:
+  ollama_data: {}

@@ -1,0 +1,14 @@
+services:
+  backend:
+    build:
+      args:
+        BUILD_MODE: gpu
+        BASE_IMAGE: nvidia/cuda:12.4.1-runtime-ubuntu22.04
+    image: solorag-backend-gpu
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu] 

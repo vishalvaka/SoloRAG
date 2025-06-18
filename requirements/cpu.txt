@@ -1,0 +1,8 @@
+# CPU-specific packages
+faiss-cpu==1.8.0
+
+# Pin PyTorch to a CPU-only wheel to avoid the massive CUDA split packages.
+# The '+cpu' suffix forces a CPU build even when building in a CUDA base image.
+# See https://pytorch.org/get-started/locally/ for available tags.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.3.0+cpu 

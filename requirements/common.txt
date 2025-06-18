@@ -1,0 +1,24 @@
+# ───────── Core micro-service ─────────
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+
+# ───────── Retrieval stack ────────────
+# sentence-transformers is installed after torch
+numpy==1.26.4
+
+# ───────── Scraping & utilities ───────
+requests==2.32.2
+beautifulsoup4==4.12.3
+tqdm==4.66.4
+python-dotenv==1.0.1
+
+# Optional: JS-rendered crawling
+# playwright==1.44.0
+# nest-asyncio==1.6.0
+
+# ───────── Observability ──────────────
+prometheus-client==0.20.0
+
+# ───────── Typing / data models ───────
+pydantic==2.7.1
+typing-extensions==4.12.1 
