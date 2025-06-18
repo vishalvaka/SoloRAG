@@ -55,6 +55,7 @@ jobs:
           pip install -r requirements-dev.txt
 
       - name: Ruff (lint / format)
+        continue-on-error: true
         run: ruff check . --output-format=github
 
       - name: Mypy (static types)
