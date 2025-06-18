@@ -85,6 +85,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Determine a lowercase image tag (GHCR requires repository names to be lowercase)
+      - name: Set image name
+        id: vars
+        run: |
+          IMAGE="ghcr.io/${{ github.repository }}/backend"
+          IMAGE_LOWER=$(echo "$IMAGE" | tr '[:upper:]' '[:lower:]')
+          echo "image=$IMAGE_LOWER" >> "$GITHUB_OUTPUT"
+
       - name: Build & push backend image (CPU)
         uses: docker/build-push-action@v5
         with:
@@ -95,8 +103,8 @@ jobs:
             BASE_IMAGE=python:3.11-slim
           push: true
           tags: |
-            ${{ env.IMAGE_NAME }}:latest
-            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ steps.vars.outputs.image }}:latest
+            ${{ steps.vars.outputs.image }}:${{ github.sha }}
 
 # ───────────────────────────── 3) optional deploy stub (k8s, fly.io, etc.) ─────────────
 #  deploy:
