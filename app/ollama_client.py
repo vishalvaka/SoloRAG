@@ -12,6 +12,7 @@ import os
 import asyncio
 import httpx
 from typing import Final
+import json
 
 OLLAMA_URL: Final[str] = os.getenv("OLLAMA_URL", "http://localhost:11434")
 OLLAMA_MODEL: Final[str] = os.getenv("OLLAMA_MODEL", "llama3:8b-instruct-q5_K_M")
@@ -48,6 +49,39 @@ async def generate(prompt: str, retries: int = 3, delay_s: float = 0.5) -> str:
         raise last_exception
     # Fallback safety net
     raise RuntimeError("Exited retry loop unexpectedly and no exception captured")
+
+# ------------------------------------------------------------------------------------
+# NEW: async generator for streaming tokens
+async def stream_generate(prompt: str):
+    """Yields chunks of the Ollama response as they arrive (server streaming)."""
+    payload = {
+        "model": OLLAMA_MODEL,
+        "prompt": prompt,
+        "stream": True,
+    }
+    url = f"{OLLAMA_URL}/api/generate"
+
+    async with httpx.AsyncClient(timeout=None) as client:
+        async with client.stream("POST", url, json=payload) as r:
+            async for line in r.aiter_lines():
+                if not line:
+                    continue
+                if line.strip() == "[DONE]":
+                    break
+                try:
+                    data = json.loads(line)
+                except Exception:
+                    # In case of malformed JSON just forward raw line
+                    yield line
+                    continue
+
+                # Ollama streams each partial response under the 'response' key.
+                token = data.get("response")
+                if token is not None:
+                    yield token
+                # Check for end condition if API marks it.
+                if data.get("done") is True:
+                    break
 
 # ------------------------------------------------------------------------------------
 # End of public API – no additional helpers below to keep the surface minimal.

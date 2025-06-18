@@ -7,7 +7,7 @@ Exposes a single async function:  get_answer(question:str) -> (markdown, sources
 import os, pathlib, asyncio, json, textwrap
 import requests, faiss, numpy as np
 from sentence_transformers import SentenceTransformer, CrossEncoder
-from .ollama_client import generate as call_ollama
+from .ollama_client import generate as call_ollama, stream_generate as call_ollama_stream
 from .prompt import build_prompt
 
 # ─── artefact paths ───────────────────────────────────────────────────────
@@ -52,3 +52,14 @@ async def get_answer(question: str):
     prompt = build_prompt(question, ctx)
     answer = await call_ollama(prompt)
     return answer, ctx
+
+# ─── streaming variant ───────────────────────────────────────────────────
+async def stream_answer(question: str):
+    """Async generator yielding answer chunks; yields sources at end as JSON string."""
+    ctx = _search(question)
+    prompt = build_prompt(question, ctx)
+
+    async for chunk in call_ollama_stream(prompt):
+        yield chunk
+    # After streaming answer, append newline and JSON sources
+    yield "\n\n[SOURCES] " + json.dumps(ctx)

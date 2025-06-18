@@ -1,9 +1,11 @@
 # app/main.py
 from fastapi import FastAPI, Response
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, field_validator
 
 # Local
 from .retrieval import get_answer
+from .retrieval import stream_answer
 
 # Prometheus metrics
 from app.middleware import MetricsMiddleware
@@ -47,6 +49,15 @@ async def query(q: Query):
     """
     answer, sources = await get_answer(q.question)
     return {"answer": answer, "sources": sources}
+
+@app.post("/query/stream")
+async def query_stream(q: Query):
+    """Stream incremental answer tokens as they are produced by the LLM."""
+
+    async def token_generator():
+        async for chunk in stream_answer(q.question):
+            yield chunk
+    return StreamingResponse(token_generator(), media_type="text/plain")
 
 @app.get("/healthz")
 async def health():
