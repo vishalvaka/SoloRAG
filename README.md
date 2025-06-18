@@ -72,6 +72,15 @@ curl -X POST http://localhost:8000/query \
      -d '{"question": "When is my first payout on Stripe?"}' | jq
 ```
 
+You can interact through the automatically generated **Swagger UI**. Visit [http://localhost:8000/docs](http://localhost:8000/docs) in your browser and you'll see the `/query` endpoint with a pre-filled example question—just click **Execute** to try it out.
+
+Prefer the command line? Here's a `curl` snippet:
+```bash
+curl -X POST http://localhost:8000/query \
+     -H "Content-Type: application/json" \
+     -d '{"question": "When is my first payout on Stripe?"}' | jq
+```
+
 ---
 
 ## 💻 Local Development Setup (Without Docker)

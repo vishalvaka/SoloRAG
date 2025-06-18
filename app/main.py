@@ -21,6 +21,17 @@ app.add_middleware(MetricsMiddleware)
 class Query(BaseModel):
     question: str
 
+    # Provide an example for the Swagger /docs page
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "question": "How do I issue a refund on Stripe?"
+                }
+            ]
+        }
+    }
+
     @field_validator("question")
     @classmethod
     def question_must_not_be_empty(cls, v: str) -> str:
