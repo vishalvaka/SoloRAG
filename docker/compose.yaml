@@ -29,5 +29,14 @@ services:
       - ollama_data:/root/.ollama
     restart: unless-stopped
 
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - backend
+
 volumes:
   ollama_data: {}

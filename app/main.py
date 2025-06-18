@@ -1,14 +1,22 @@
 # app/main.py
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from pydantic import BaseModel, field_validator
 
-from .retrieval import get_answer   # we'll create this in the next step
+# Local
+from .retrieval import get_answer
+
+# Prometheus metrics
+from app.middleware import MetricsMiddleware
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
 app = FastAPI(
     title="SoloRAG – Stripe FAQ Assistant",
     version="0.1.0",
     description="Retrieval-Augmented Generation over Stripe Support docs",
 )
+
+# Register middleware early so it wraps all routes
+app.add_middleware(MetricsMiddleware)
 
 class Query(BaseModel):
     question: str
@@ -32,3 +40,10 @@ async def query(q: Query):
 @app.get("/healthz")
 async def health():
     return {"status": "ok"}
+
+# --------------------------- metrics endpoint ---------------------------
+
+# Expose metrics in Prometheus text format at /metrics
+@app.get("/metrics")
+async def metrics() -> Response:
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
