@@ -12,6 +12,7 @@ concurrency:
 
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository }}/backend
+  OLLAMA_MODEL: tinyllama:latest
 
 jobs:
 # ───────────────────────────── 1) lint + type-check + test ─────────────────────────────
@@ -27,9 +28,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
+      - name: Pre-pull Ollama model (tinyllama)
+        run: |
+          echo "Pulling tinyllama:latest for CI …"
+          curl -sS -X POST http://localhost:11434/api/pull \
+               -H "Content-Type: application/json" \
+               -d '{"name":"tinyllama:latest"}'
 
       - name: Install runtime & dev deps
         run: |
@@ -39,7 +55,7 @@ jobs:
           pip install -r requirements-dev.txt
 
       - name: Ruff (lint / format)
-        run: ruff check .
+        run: ruff check . --output-format=github
 
       - name: Mypy (static types)
         run: mypy app
