@@ -9,6 +9,11 @@ SoloRAG is a minimal, self-contained Retrieval-Augmented-Generation stack that l
 
 > 🔎 **Looking for the design rationale?** See [`docs/architecture.md`](docs/architecture.md).
 
+> 📚 **Documentation**
+> * **Quick local setup** → [`docs/setup_local.md`](docs/setup_local.md)
+> * **Architecture overview** → [`docs/architecture.md`](docs/architecture.md)
+> * **Benchmarks & metrics** → [`docs/benchmarks.md`](docs/benchmarks.md)
+
 ---
 
 ## 🚀 Quick Start (Recommended)
