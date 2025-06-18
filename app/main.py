@@ -6,6 +6,7 @@ from pydantic import BaseModel, field_validator
 # Local
 from .retrieval import get_answer
 from .retrieval import stream_answer
+from .logger import logger
 
 # Prometheus metrics
 from app.middleware import MetricsMiddleware
@@ -47,12 +48,15 @@ async def query(q: Query):
     Retrieve relevant FAQ snippets, pass them to the LLM,
     and return the markdown answer plus source snippets.
     """
+    logger.info("query_received", question=q.question)
     answer, sources = await get_answer(q.question)
     return {"answer": answer, "sources": sources}
 
 @app.post("/query/stream")
 async def query_stream(q: Query):
     """Stream incremental answer tokens as they are produced by the LLM."""
+
+    logger.info("query_stream_received", question=q.question)
 
     async def token_generator():
         async for chunk in stream_answer(q.question):

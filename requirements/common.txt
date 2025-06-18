@@ -18,6 +18,7 @@ python-dotenv==1.0.1
 
 # ───────── Observability ──────────────
 prometheus-client==0.20.0
+structlog==24.2.0
 
 # ───────── Typing / data models ───────
 pydantic==2.7.1

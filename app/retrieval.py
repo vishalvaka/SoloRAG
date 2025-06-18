@@ -9,6 +9,7 @@ import requests, faiss, numpy as np
 from sentence_transformers import SentenceTransformer, CrossEncoder
 from .ollama_client import generate as call_ollama, stream_generate as call_ollama_stream
 from .prompt import build_prompt
+from .logger import logger
 
 # ─── artefact paths ───────────────────────────────────────────────────────
 BASE_DIR   = pathlib.Path(__file__).resolve().parent.parent
@@ -17,7 +18,7 @@ INDEX_FILE = ART_DIR / "faiss.idx"
 META_FILE  = ART_DIR / "meta.npy"
 
 # ─── load index & models once at import time ──────────────────────────────
-print("🔄  Loading FAISS index & embeddings …")
+logger.info("loading_index", details="Loading FAISS index & embeddings …")
 INDEX   = faiss.read_index(str(INDEX_FILE))
 TEXTS   = np.load(META_FILE, allow_pickle=True)
 EMBED   = SentenceTransformer("intfloat/e5-base-v2")
