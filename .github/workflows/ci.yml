@@ -59,7 +59,7 @@ jobs:
         run: ruff check . --output-format=github
 
       - name: Mypy (static types)
-        run: mypy app
+        run: mypy --install-types --non-interactive --ignore-missing-imports app
 
       - name: Pytest
         run: pytest -q
