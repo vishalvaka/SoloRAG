@@ -4,3 +4,6 @@ line-length = 100
 [tool.ruff.lint]
 select = ["E", "F"]
 ignore = ["F401", "E401", "E402", "E501", "E702"]
+
+[tool.mypy]
+ignore_missing_imports = true
