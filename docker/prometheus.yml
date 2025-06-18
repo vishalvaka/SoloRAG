@@ -3,4 +3,6 @@ global:
 scrape_configs:
   - job_name: backend
     static_configs:
-      - targets: ["backend:8000"] 
+      - targets: ["backend:8000"]
+rule_files:
+  - /etc/prometheus/alerts.yml 
