@@ -45,7 +45,7 @@ This script creates `artifacts/faiss.idx` and `artifacts/meta.npy` (~15 MB total
 ```bash
 ./scripts/run_tests.sh -q   # -q for concise output
 ```
-You should see all 17 tests pass.
+You should see all **19** tests pass.
 
 ---
 
@@ -78,8 +78,8 @@ ollama serve &   # or `ollama run llama3` to pull model first
 
 ## 6. Interacting with the API
 1. Open Swagger UI: http://localhost:8000/docs
-2. Try the `/answer` endpoint with a question like **"How can I refund a payment?"**
-3. Watch the streaming response in real time.
+2. Use the `/query` endpoint (pre-filled example) or `/query/stream` for live token streaming.
+3. Watch the answer appear in real-time; a `[SOURCES]` block is appended at the end when streaming.
 
 ---
 

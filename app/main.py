@@ -42,6 +42,17 @@ class Query(BaseModel):
             raise ValueError("Question must not be empty.")
         return v
 
+class Health(BaseModel):
+    status: str = "ok"
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {"status": "ok"}
+            ]
+        }
+    }
+
 @app.post("/query")
 async def query(q: Query):
     """
@@ -63,13 +74,26 @@ async def query_stream(q: Query):
             yield chunk
     return StreamingResponse(token_generator(), media_type="text/plain")
 
-@app.get("/healthz")
-async def health():
-    return {"status": "ok"}
+@app.get("/healthz", response_model=Health)
+async def health() -> Health:
+    """Simple liveness probe."""
+    return Health()
 
 # --------------------------- metrics endpoint ---------------------------
 
-# Expose metrics in Prometheus text format at /metrics
-@app.get("/metrics")
+@app.get(
+    "/metrics",
+    responses={
+        200: {
+            "content": {
+                "text/plain": {
+                    "example": "# HELP http_requests_total Total HTTP requests\n# TYPE http_requests_total counter\nhttp_requests_total{method=\"post\",code=\"200\"} 1027 1395066363000"
+                }
+            },
+            "description": "Prometheus metrics in text exposition format.",
+        }
+    },
+)
 async def metrics() -> Response:
+    """Prometheus text exposition endpoint."""
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)

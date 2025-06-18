@@ -32,9 +32,11 @@ graph TD
 
 ## 2. Backend (FastAPI)
 * **Endpoints**
-  * `GET /health` – liveness probe.
-  * `POST /answer` – main QA endpoint, validates input, streams answer chunks.
+  * `GET /healthz` – liveness probe.
+  * `POST /query` – returns full answer JSON.
+  * `POST /query/stream` – streams tokens as they are generated.
 * **Middleware** – a custom Prometheus middleware records request counts, durations and error rates.
+* **Logging** – `structlog` outputs JSON logs; perfect for Grafana Loki.
 * **Testing** – pytest with `httpx.AsyncClient` gives ~95 % unit-test coverage.
 
 ## 3. Retrieval Layer
@@ -60,7 +62,7 @@ graph TD
 * **Scripts** — `scripts/evaluate.py` gives quantitative accuracy numbers; `scripts/run_tests.sh` is used in CI.
 
 ## 7. Data Flow Summary
-1. Client issues `/answer` request.
+1. Client issues `/query` (or `/query/stream`) request.
 2. Backend validates & normalises the query.
 3. Retriever returns the most relevant passages.
 4. Prompt builder formats the request for the LLM.

@@ -81,6 +81,14 @@ curl -X POST http://localhost:8000/query \
      -d '{"question": "When is my first payout on Stripe?"}' | jq
 ```
 
+Want chunk-by-chunk tokens? Use the streaming endpoint:
+```bash
+curl -N -X POST http://localhost:8000/query/stream \
+     -H "Content-Type: application/json" \
+     -d '{"question": "How do I issue a refund on Stripe?"}'
+```
+The response will stream incrementally, followed by a `[SOURCES]` block.
+
 ---
 
 ## 💻 Local Development Setup (Without Docker)
@@ -139,7 +147,7 @@ The API will be available at `http://localhost:8000`.
 
 ## 🧪 Testing Guide
 
-The project includes a comprehensive test suite to ensure correctness and stability.
+The project includes a comprehensive test suite (19 tests) to ensure correctness and stability.
 
 ### Running All Tests
 A convenience script is provided to run the entire test suite using `pytest`.
@@ -162,6 +170,7 @@ The test suite is located in `app/tests/` and covers the following components:
 *   `test_retrieval.py`: Unit tests the retrieval logic. It verifies that the retriever correctly finds relevant document chunks from the FAISS index and handles cases with no matching context.
 *   `test_prompt.py`: Unit tests the prompt generation logic. It checks that the final prompt sent to the LLM is correctly formatted based on the retrieved context.
 *   `test_ollama_client.py`: Unit tests the asynchronous Ollama client. It mocks the `httpx` library to ensure the client correctly sends requests, handles successful responses, and manages retries upon failure.
+*   `test_streaming.py`: Verifies `/query/stream` behaviour and logging events.
 
 ---
 
