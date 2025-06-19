@@ -39,5 +39,22 @@ services:
     depends_on:
       - backend
 
+  streamlit:
+    image: solorag-backend-cpu
+    build:
+      context: ..
+      dockerfile: docker/backend.Dockerfile
+      args:
+        BUILD_MODE: cpu
+        BASE_IMAGE: python:3.11-slim
+    command: >
+      bash -c "streamlit run /app/streamlit_app.py --server.port 8501 --server.address 0.0.0.0"
+    environment:
+      - BACKEND_URL=http://backend:8000
+    ports:
+      - "8501:8501"
+    depends_on:
+      - backend
+
 volumes:
   ollama_data: {}
