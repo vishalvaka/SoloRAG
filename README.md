@@ -64,6 +64,14 @@ services:
 ```
 When you next run `docker compose -f docker/compose.yaml up`, the entrypoint script will automatically pull the specified model.
 
+> ⏳ **First-time startup can take a few minutes** because Ollama needs to download the LLM weights (~4-6 GB). You can monitor progress with:
+>
+> ```bash
+> docker compose logs -f streamlit   # or: docker compose logs -f backend
+> ```
+>
+> Once you see `Listening on 127.0.0.1:11434` the model is ready and the API/UI will respond.
+
 ### 4. Query the API
 Once the container is running and you see the log `Uvicorn running on http://0.0.0.0:8000`, open a new terminal and send a request:
 ```bash
