@@ -2,7 +2,7 @@ import asyncio
 import json
 import os
 import textwrap
-from typing import List
+from typing import List, Union
 
 import httpx
 import streamlit as st  # type: ignore
@@ -18,8 +18,14 @@ if "messages" not in st.session_state:
 
 # Display chat history
 for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+    if msg["role"] == "user":
+        with st.chat_message("user"):
+            st.markdown(msg["content"])
+    else:  # assistant
+        with st.chat_message("assistant"):
+            st.markdown(msg["answer"])
+            with st.expander("Show Sources"):
+                st.markdown(msg["sources"])
 
 # --- user input form ---
 if prompt := st.chat_input("Ask a question about Stripe payments…"):
@@ -42,19 +48,30 @@ if prompt := st.chat_input("Ask a question about Stripe payments…"):
                     if "[SOURCES]" in buffer:
                         body, src = buffer.split("[SOURCES]", 1)
                         answer_box.markdown(body)
+                        formatted_raw = src
                         try:
                             src_json = json.loads(src)
-                            formatted = "\n".join(f"* {textwrap.shorten(s['text'], 120)} (score: {s['score']:.2f})" for s in src_json)
-                            with sources_container.expander("Show Sources"):
-                                st.markdown(formatted)
+                            formatted_raw = "\n".join(
+                                f"* {textwrap.shorten(s['text'], 120)} (score: {s['score']:.2f})" for s in src_json
+                            )
                         except Exception:
-                            with sources_container.expander("Show Sources"):
-                                st.markdown(src)
-                        return
+                            pass
+
+                        with sources_container.expander("Show Sources"):
+                            st.markdown(formatted_raw)
+                        return body, formatted_raw
                     answer_box.markdown(buffer + " ▌")
 
-    # Fetch answer asynchronously
-    asyncio.run(fetch_stream(prompt))
+            # Fallback (should not hit)
+        return "", ""
 
-    # Save assistant message after completion
-    st.session_state.messages.append({"role": "assistant", "content": answer_box.markdown}) 
+    # Fetch answer asynchronously
+    body, formatted = asyncio.run(fetch_stream(prompt))
+
+    st.session_state.messages.append(
+        {
+            "role": "assistant",
+            "answer": body,
+            "sources": formatted,
+        }
+    ) 
