@@ -89,6 +89,14 @@ curl -N -X POST http://localhost:8000/query/stream \
 ```
 The response will stream incrementally, followed by a `[SOURCES]` block.
 
+### 5. Open the Chat UI
+If you'd rather chat in a browser instead of using Swagger or curl, launch the Streamlit app:
+```bash
+streamlit run streamlit_app.py
+```
+
+Make sure the backend API is already running (Docker Compose or `uvicorn`). The UI connects to `http://localhost:8000` by default; override via `BACKEND_URL` env var.
+
 ---
 
 ## 💻 Local Development Setup (Without Docker)
@@ -147,7 +155,8 @@ The API will be available at `http://localhost:8000`.
 
 ## 🧪 Testing Guide
 
-The project includes a comprehensive test suite (19 tests) to ensure correctness and stability.
+The project includes a comprehensive test suite (21 tests) to ensure correctness and stability.
++The project includes a comprehensive test suite (22 tests) to ensure correctness and stability (one optional Streamlit import test is skipped if Streamlit isn't installed in CI).
 
 ### Running All Tests
 A convenience script is provided to run the entire test suite using `pytest`.

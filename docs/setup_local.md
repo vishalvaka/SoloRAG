@@ -45,7 +45,8 @@ This script creates `artifacts/faiss.idx` and `artifacts/meta.npy` (~15 MB total
 ```bash
 ./scripts/run_tests.sh -q   # -q for concise output
 ```
-You should see all **19** tests pass.
+
+You should see all **22** tests pass.
 
 ---
 
