@@ -7,7 +7,7 @@ from unittest.mock import patch, AsyncMock
 
 def test_streamlit_app_imports():
     """Streamlit script should import without side effects/errors."""
-    streamlit = pytest.importorskip("streamlit", reason="streamlit not installed")
+    _ = pytest.importorskip("streamlit", reason="streamlit not installed")
     try:
         module = importlib.import_module("streamlit_app")
     except (KeyError, AttributeError):
@@ -55,7 +55,7 @@ async def test_fetch_stream_function():
     async def mock_fetch_stream(question: str):
         """Mock version of fetch_stream function."""
         backend_url = os.getenv("BACKEND_URL", "http://localhost:8000")
-        query_endpoint = f"{backend_url}/query/stream"
+        _ = f"{backend_url}/query/stream"  # query_endpoint - not used in mock but shows pattern
         
         # Mock the expected behavior
         return "Mock answer", "Mock sources"
