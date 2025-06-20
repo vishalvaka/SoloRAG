@@ -61,9 +61,10 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # Copy app code and artifacts
 COPY ./app ./app
 COPY ./artifacts ./artifacts
+COPY ./streamlit_app.py ./streamlit_app.py
 
 ENV OLLAMA_URL=http://localhost:11434
 
 # 3. Expose and launch
-EXPOSE 8000
+EXPOSE 8000 8501
 ENTRYPOINT ["/entrypoint.sh"]

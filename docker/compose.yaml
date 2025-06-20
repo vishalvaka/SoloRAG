@@ -8,7 +8,8 @@ services:
         BUILD_MODE: cpu
         BASE_IMAGE: python:3.11-slim
     ports:
-      - "8000:8000"
+      - "8000:8000"  # FastAPI backend
+      - "8501:8501"  # Streamlit UI
     volumes:
       - ../artifacts:/app/artifacts:ro
     depends_on:
@@ -16,6 +17,7 @@ services:
     restart: unless-stopped
     environment:
       - OLLAMA_URL=http://localhost:11434
+      - BACKEND_URL=http://localhost:8000
       # By default, the entrypoint uses llama3:8b-instruct-q5_K_M.
       # Uncomment the line below to use a different model.
       # The entrypoint script will automatically pull this model on startup.
@@ -36,23 +38,6 @@ services:
       - ./alerts.yml:/etc/prometheus/alerts.yml:ro
     ports:
       - "9090:9090"
-    depends_on:
-      - backend
-
-  streamlit:
-    image: solorag-backend-cpu
-    build:
-      context: ..
-      dockerfile: docker/backend.Dockerfile
-      args:
-        BUILD_MODE: cpu
-        BASE_IMAGE: python:3.11-slim
-    command: >
-      bash -c "streamlit run /app/streamlit_app.py --server.port 8501 --server.address 0.0.0.0"
-    environment:
-      - BACKEND_URL=http://backend:8000
-    ports:
-      - "8501:8501"
     depends_on:
       - backend
 

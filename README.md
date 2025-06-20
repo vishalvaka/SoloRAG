@@ -67,22 +67,22 @@ When you next run `docker compose -f docker/compose.yaml up`, the entrypoint scr
 > ⏳ **First-time startup can take a few minutes** because Ollama needs to download the LLM weights (~4-6 GB). You can monitor progress with:
 >
 > ```bash
-> docker compose logs -f streamlit   # or: docker compose logs -f backend
+> docker compose logs -f backend
 > ```
 >
-> Once you see `Listening on 127.0.0.1:11434` the model is ready and the API/UI will respond.
+> Once you see `SoloRAG is ready!` in the logs, both the API and UI will be available.
 
-### 4. Query the API
-Once the container is running and you see the log `Uvicorn running on http://0.0.0.0:8000`, open a new terminal and send a request:
-```bash
-curl -X POST http://localhost:8000/query \
-     -H "Content-Type: application/json" \
-     -d '{"question": "When is my first payout on Stripe?"}' | jq
-```
+### 4. Access the Application
+Once the container is running and you see the log `SoloRAG is ready!`, you can access the application through multiple interfaces:
 
-You can interact through the automatically generated **Swagger UI**. Visit [http://localhost:8000/docs](http://localhost:8000/docs) in your browser and you'll see the `/query` endpoint with a pre-filled example question—just click **Execute** to try it out.
+**🌐 Streamlit Chat UI** (Recommended for interactive use)
+Visit [http://localhost:8501](http://localhost:8501) in your browser for a chat interface.
 
-Prefer the command line? Here's a `curl` snippet:
+**📚 API Documentation**
+Visit [http://localhost:8000/docs](http://localhost:8000/docs) for the interactive Swagger UI.
+
+**🔧 Direct API Access**
+You can also send requests directly to the API:
 ```bash
 curl -X POST http://localhost:8000/query \
      -H "Content-Type: application/json" \
@@ -97,17 +97,7 @@ curl -N -X POST http://localhost:8000/query/stream \
 ```
 The response will stream incrementally, followed by a `[SOURCES]` block.
 
-### 5. Open the Chat UI
-If you'd rather chat in a browser instead of using Swagger or curl, launch the Streamlit app:
-```bash
-streamlit run streamlit_app.py
-```
-
-Make sure the backend API is already running (Docker Compose or `uvicorn`). The UI connects to `http://localhost:8000` by default; override via `BACKEND_URL` env var.
-
----
-
-## 💻 Local Development Setup (Without Docker)
+### 5. Local Development (Without Docker)
 
 If you prefer to run the application directly on your machine, follow these steps.
 
@@ -159,12 +149,18 @@ uvicorn app.main:app --reload
 ```
 The API will be available at `http://localhost:8000`.
 
+**Optional: Run Streamlit UI**
+If you want to use the chat interface, start Streamlit in a separate terminal:
+```bash
+streamlit run streamlit_app.py
+```
+The UI will be available at `http://localhost:8501` and will connect to the FastAPI backend at `http://localhost:8000`.
+
 ---
 
 ## 🧪 Testing Guide
 
-The project includes a comprehensive test suite (21 tests) to ensure correctness and stability.
-+The project includes a comprehensive test suite (22 tests) to ensure correctness and stability (one optional Streamlit import test is skipped if Streamlit isn't installed in CI).
+The project includes a comprehensive test suite (34+ tests) to ensure correctness and stability, covering API, retrieval, prompt logic, Ollama client, streaming, Streamlit integration, and Docker setup.
 
 ### Running All Tests
 A convenience script is provided to run the entire test suite using `pytest`.
@@ -183,11 +179,15 @@ You can also pass `pytest` arguments directly to the script:
 ### Test Suite Overview
 The test suite is located in `app/tests/` and covers the following components:
 
-*   `test_api.py`: Tests the FastAPI endpoints. It ensures that the `/query` endpoint handles valid requests correctly, rejects invalid ones (e.g., empty questions), and returns the expected JSON structure.
+*   `test_api.py`: Tests the FastAPI endpoints, including `/query` and `/query/stream` (used by Streamlit). Ensures valid/invalid requests are handled, and that streaming responses are compatible with the UI.
 *   `test_retrieval.py`: Unit tests the retrieval logic. It verifies that the retriever correctly finds relevant document chunks from the FAISS index and handles cases with no matching context.
 *   `test_prompt.py`: Unit tests the prompt generation logic. It checks that the final prompt sent to the LLM is correctly formatted based on the retrieved context.
 *   `test_ollama_client.py`: Unit tests the asynchronous Ollama client. It mocks the `httpx` library to ensure the client correctly sends requests, handles successful responses, and manages retries upon failure.
-*   `test_streaming.py`: Verifies `/query/stream` behaviour and logging events.
+*   `test_streaming.py`: Verifies `/query/stream` behaviour, streaming output, and logging events.
+*   `test_streamlit_app.py`: Tests Streamlit integration, including environment variable handling, backend connectivity, endpoint construction, and UI compatibility with the backend API.
+*   `test_docker_setup.py`: Verifies Docker Compose, Dockerfile, and entrypoint script structure, required environment variables, artifact mounting, and build/run command structure.
+
+> **Note:** The Streamlit tests are skipped if Streamlit is not installed in your environment.
 
 ---
 
