@@ -160,7 +160,7 @@ The UI will be available at `http://localhost:8501` and will connect to the Fast
 
 ## 🧪 Testing Guide
 
-The project includes a comprehensive test suite (34+ tests) to ensure correctness and stability, covering API, retrieval, prompt logic, Ollama client, streaming, Streamlit integration, and Docker setup.
+The project includes a comprehensive test suite (39+ tests) to ensure correctness and stability, covering API, retrieval, prompt logic, Ollama client, streaming, Streamlit integration, and Docker setup.
 
 ### Running All Tests
 A convenience script is provided to run the entire test suite using `pytest`.
