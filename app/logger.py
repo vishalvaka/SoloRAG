@@ -1,9 +1,9 @@
 import logging, sys
 
 try:
-    import structlog  # type: ignore
+    import structlog
 except ModuleNotFoundError:  # pragma: no cover
-    structlog = None  # type: ignore
+    structlog = None
 
 
 if structlog is None:
@@ -38,7 +38,7 @@ if structlog is None:
     logger = _CompatLogger(logging.getLogger("solorag"))
 else:
 
-    def _configure_logging():
+    def _configure_logging() -> None:
         """Configure structlog for JSON output compatible with Grafana Loki."""
         logging.basicConfig(
             format="%(message)s",
@@ -46,19 +46,19 @@ else:
             level=logging.INFO,
         )
 
-        structlog.configure(  # type: ignore[attr-defined]
+        structlog.configure(
             processors=[
-                structlog.processors.TimeStamper(fmt="iso"),  # type: ignore[attr-defined]
-                structlog.processors.add_log_level,  # type: ignore[attr-defined]
-                structlog.processors.StackInfoRenderer(),  # type: ignore[attr-defined]
-                structlog.processors.format_exc_info,  # type: ignore[attr-defined]
-                structlog.processors.JSONRenderer(),  # type: ignore[attr-defined]
+                structlog.processors.TimeStamper(fmt="iso"),
+                structlog.processors.add_log_level,
+                structlog.processors.StackInfoRenderer(),
+                structlog.processors.format_exc_info,
+                structlog.processors.JSONRenderer(),
             ],
-            wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),  # type: ignore[attr-defined]
+            wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
             context_class=dict,
-            logger_factory=structlog.stdlib.LoggerFactory(),  # type: ignore[attr-defined]
+            logger_factory=structlog.stdlib.LoggerFactory(),
             cache_logger_on_first_use=True,
         )
 
     _configure_logging()
-    logger = structlog.get_logger()  # type: ignore[attr-defined] 
+    logger = structlog.get_logger() 

@@ -16,7 +16,7 @@ SYSTEM_MSG: str = (
 )
 
 
-def build_prompt(question: str, context_snips: List[Dict]) -> str:  # type: ignore[name-defined]
+def build_prompt(question: str, context_snips: List[Dict[str, str]]) -> str:
     """Compose the final prompt fed to the LLM.
 
     Parameters

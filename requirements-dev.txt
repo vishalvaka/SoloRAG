@@ -25,6 +25,7 @@ prometheus-client==0.20.0
 # ───────── Typing / data models ───────
 pydantic==2.7.1
 typing-extensions==4.12.1
+types-requests==2.32.0.20241016  # Type stubs for requests library
 
 nest_asyncio
 
