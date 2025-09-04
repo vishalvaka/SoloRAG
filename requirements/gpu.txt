@@ -1,6 +1,14 @@
-# GPU-specific packages
+# GPU-specific packages for CUDA acceleration
+# FAISS with GPU support for vector search acceleration
 faiss-gpu==1.7.2
- 
-# PyTorch with CUDA 12.1 support.
-# See https://pytorch.org/get-started/locally/
-torch==2.3.0 
+
+# PyTorch with CUDA support - use the official CUDA 12.1 wheels for better compatibility
+# See https://pytorch.org/get-started/locally/ for available versions
+--extra-index-url https://download.pytorch.org/whl/cu121
+torch==2.5.1+cu121
+torchvision==0.20.1+cu121
+torchaudio==2.5.1+cu121
+
+# Additional GPU optimization packages
+# These help with memory management and performance
+nvidia-ml-py3>=7.352.0  # For GPU monitoring and management 

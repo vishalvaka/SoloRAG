@@ -5,7 +5,7 @@ from pydantic import BaseModel, field_validator
 
 # Local
 from .retrieval import get_answer
-from .retrieval import stream_answer
+from .retrieval import stream_answer, get_index_info
 from .logger import logger
 
 # Prometheus metrics
@@ -44,11 +44,23 @@ class Query(BaseModel):
 
 class Health(BaseModel):
     status: str = "ok"
+    gpu_enabled: bool = False
+    index_type: str = "unknown"
+    num_vectors: str = "unknown"
+    embedding_model: str = "unknown"
+    rerank_model: str = "unknown"
 
     model_config = {
         "json_schema_extra": {
             "examples": [
-                {"status": "ok"}
+                {
+                    "status": "ok",
+                    "gpu_enabled": True,
+                    "index_type": "IndexIVFFlat",
+                    "num_vectors": "50000",
+                    "embedding_model": "intfloat/e5-base-v2",
+                    "rerank_model": "cross-encoder/ms-marco-MiniLM-L-6-v2"
+                }
             ]
         }
     }
@@ -76,8 +88,20 @@ async def query_stream(q: Query):
 
 @app.get("/healthz", response_model=Health)
 async def health() -> Health:
-    """Simple liveness probe."""
-    return Health()
+    """Enhanced health probe with index information."""
+    try:
+        index_info = get_index_info()
+        return Health(
+            status="ok",
+            gpu_enabled=index_info["gpu_enabled"],
+            index_type=index_info["index_type"],
+            num_vectors=str(index_info["num_vectors"]),
+            embedding_model=index_info["embedding_model"],
+            rerank_model=index_info["rerank_model"]
+        )
+    except Exception as e:
+        logger.error("health_check_failed", error=str(e))
+        return Health(status="error")
 
 # --------------------------- metrics endpoint ---------------------------
 

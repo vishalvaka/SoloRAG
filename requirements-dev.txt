@@ -4,7 +4,9 @@ uvicorn[standard]==0.29.0
 
 # ───────── Retrieval stack ────────────
 sentence-transformers>=2.6.0,<2.8.0     # 2.7.0 is latest on PyPI
-faiss-cpu==1.8.0                         # binary wheels for cp38-cp311
+# Note: FAISS is installed via requirements/cpu.txt or requirements/gpu.txt
+# Don't install faiss-cpu here to avoid conflicts with faiss-gpu
+# faiss-cpu==1.8.0  # Commented out to prevent conflicts
 numpy==1.26.4
 
 # ───────── Scraping & utilities ───────
