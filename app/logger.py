@@ -3,7 +3,7 @@ import logging, sys
 try:
     import structlog
 except ModuleNotFoundError:  # pragma: no cover
-    structlog = None
+    structlog = None  # type: ignore
 
 
 if structlog is None:

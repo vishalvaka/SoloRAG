@@ -5,6 +5,7 @@ Exposes a single async function:  get_answer(question:str) -> (markdown, sources
 """
 
 import os, pathlib, asyncio, json, textwrap
+from typing import AsyncGenerator
 import requests, faiss, numpy as np
 from sentence_transformers import SentenceTransformer, CrossEncoder
 from .ollama_client import generate as call_ollama, stream_generate as call_ollama_stream
@@ -18,7 +19,7 @@ INDEX_FILE = ART_DIR / "faiss.idx"
 META_FILE  = ART_DIR / "meta.npy"
 
 # ─── GPU detection and configuration ──────────────────────────────────────
-def _detect_gpu_capability():
+def _detect_gpu_capability() -> bool:
     """Detect if GPU FAISS is available and functional."""
     try:
         import torch
@@ -68,7 +69,7 @@ if GPU_AVAILABLE:
         
         # Clone index to GPU
         INDEX = faiss.index_cpu_to_gpu(gpu_resources, 0, cpu_index, gpu_options)
-        logger.info("index_gpu", details=f"Successfully moved FAISS index to GPU")
+        logger.info("index_gpu", details="Successfully moved FAISS index to GPU")
         
         # Clean up CPU index to save memory
         del cpu_index
@@ -103,7 +104,7 @@ OLLAMA_URL   = os.getenv("OLLAMA_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3:8b-instruct-q5_K_M")
 
 # ─── GPU-optimized search parameters ──────────────────────────────────────
-def _get_optimal_search_params(k: int, overfetch: int):
+def _get_optimal_search_params(k: int, overfetch: int) -> dict:
     """Get optimal search parameters based on GPU availability and index type."""
     if GPU_AVAILABLE:
         # For GPU, we can afford larger overfetch for better accuracy
@@ -121,7 +122,7 @@ def _get_optimal_search_params(k: int, overfetch: int):
         }
 
 # ─── helpers ──────────────────────────────────────────────────────────────
-def _search(query: str, k: int = 4, overfetch: int = 5):
+def _search(query: str, k: int = 4, overfetch: int = 5) -> list:
     """Vector search + cross-encoder rerank → top-k paragraphs.
     
     Optimized for GPU when available with larger overfetch ratios
@@ -164,7 +165,7 @@ def _search(query: str, k: int = 4, overfetch: int = 5):
     return [{"text": p, "score": float(s)} for p, s in ranked]
 
 # ─── public API ───────────────────────────────────────────────────────────
-async def get_answer(question: str):
+async def get_answer(question: str) -> tuple:
     """
     Returns (markdown_answer, source_snippets)
     source_snippets: List[{"text": str, "score": float}]
@@ -175,7 +176,7 @@ async def get_answer(question: str):
     return answer, ctx
 
 # ─── streaming variant ───────────────────────────────────────────────────
-async def stream_answer(question: str):
+async def stream_answer(question: str) -> AsyncGenerator[str, None]:
     """Async generator yielding answer chunks; yields sources at end as JSON string."""
     ctx = _search(question)
     prompt = build_prompt(question, ctx)
@@ -186,7 +187,7 @@ async def stream_answer(question: str):
     yield "\n\n[SOURCES] " + json.dumps(ctx)
 
 # ─── utility functions ───────────────────────────────────────────────────
-def get_index_info():
+def get_index_info() -> dict:
     """Return information about the current index configuration."""
     return {
         "gpu_enabled": GPU_AVAILABLE,

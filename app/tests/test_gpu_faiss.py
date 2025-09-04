@@ -239,7 +239,7 @@ except Exception as e:
             for temp_file in [vectors_file, index_file]:
                 try:
                     os.unlink(temp_file)
-                except:
+                except OSError:
                     pass
         
         # If GPU training failed, use hybrid approach

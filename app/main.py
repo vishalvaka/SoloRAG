@@ -2,6 +2,7 @@
 from fastapi import FastAPI, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, field_validator
+from typing import AsyncGenerator
 
 # Local
 from .retrieval import get_answer
@@ -66,7 +67,7 @@ class Health(BaseModel):
     }
 
 @app.post("/query")
-async def query(q: Query):
+async def query(q: Query) -> dict:
     """
     Retrieve relevant FAQ snippets, pass them to the LLM,
     and return the markdown answer plus source snippets.
@@ -76,12 +77,12 @@ async def query(q: Query):
     return {"answer": answer, "sources": sources}
 
 @app.post("/query/stream")
-async def query_stream(q: Query):
+async def query_stream(q: Query) -> StreamingResponse:
     """Stream incremental answer tokens as they are produced by the LLM."""
 
     logger.info("query_stream_received", question=q.question)
 
-    async def token_generator():
+    async def token_generator() -> AsyncGenerator[str, None]:
         async for chunk in stream_answer(q.question):
             yield chunk
     return StreamingResponse(token_generator(), media_type="text/plain")

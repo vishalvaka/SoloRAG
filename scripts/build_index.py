@@ -17,7 +17,7 @@ def detect_gpu_capability():
         # Check if GPU functions are available (faiss-gpu vs faiss-cpu)
         gpu_functions_available = hasattr(faiss, 'StandardGpuResources')
         return ngpus > 0 and torch.cuda.is_available() and gpu_functions_available
-    except:
+    except Exception:
         return False
 
 GPU_AVAILABLE = detect_gpu_capability()
@@ -164,7 +164,7 @@ faiss.write_index(index, str(IDX_FILE))
 print(f"💾 Saving metadata to {META_FILE}")
 np.save(META_FILE, np.array(texts, dtype=object))
 
-print(f"\n🎉 Index building completed!")
+print("\n🎉 Index building completed!")
 print(f"   📁 Index: {IDX_FILE} ({IDX_FILE.stat().st_size / 1024 / 1024:.1f} MB)")
 print(f"   📁 Metadata: {META_FILE} ({META_FILE.stat().st_size / 1024 / 1024:.1f} MB)")
 print(f"   🎯 Index type: {type(index).__name__}")

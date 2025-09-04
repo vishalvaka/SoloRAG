@@ -11,7 +11,7 @@ from __future__ import annotations
 import os
 import asyncio
 import httpx
-from typing import Final
+from typing import Final, AsyncGenerator
 import json
 
 OLLAMA_URL: Final[str] = os.getenv("OLLAMA_URL", "http://localhost:11434")
@@ -52,7 +52,7 @@ async def generate(prompt: str, retries: int = 3, delay_s: float = 0.5) -> str:
 
 # ------------------------------------------------------------------------------------
 # NEW: async generator for streaming tokens
-async def stream_generate(prompt: str):
+async def stream_generate(prompt: str) -> AsyncGenerator[str, None]:
     """Yields chunks of the Ollama response as they arrive (server streaming)."""
     payload = {
         "model": OLLAMA_MODEL,
