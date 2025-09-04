@@ -18,7 +18,8 @@ async def test_stream_endpoint(monkeypatch):
     import app.retrieval as retr
     monkeypatch.setattr(retr, "call_ollama_stream", _fake_stream, raising=True)
 
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    from httpx import ASGITransport
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         r = await ac.post("/query/stream", json={"question": "Test?"})
 
     assert r.status_code == 200
@@ -43,7 +44,8 @@ async def test_query_logging(monkeypatch):
 
     monkeypatch.setattr(app_logger.logger, "info", _fake_info, raising=False)
 
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    from httpx import ASGITransport
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         await ac.post("/query", json={"question": "Ping"})
 
     assert captured.get("event") == "query_received"

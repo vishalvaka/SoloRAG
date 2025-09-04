@@ -8,22 +8,33 @@ from app.main import app
 
 # ---------- helpers --------------------------------------------------------
 async def _post_query(question: str):
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    from httpx import ASGITransport
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         return await ac.post("/query", json={"question": question})
 
 
 async def _post_query_stream(question: str):
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    from httpx import ASGITransport
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         return await ac.post("/query/stream", json={"question": question})
 
 
 # ---------- tests ----------------------------------------------------------
 @pytest.mark.asyncio
 async def test_health():
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    from httpx import ASGITransport
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         r = await ac.get("/healthz")
     assert r.status_code == 200
-    assert r.json() == {"status": "ok"}
+    
+    data = r.json()
+    assert data["status"] == "ok"
+    # Check that the enhanced health response contains expected fields
+    assert "gpu_enabled" in data
+    assert "index_type" in data
+    assert "num_vectors" in data
+    assert "embedding_model" in data
+    assert "rerank_model" in data
 
 
 @pytest.mark.asyncio
@@ -74,7 +85,8 @@ async def test_streamlit_compatible_streaming(monkeypatch):
 @pytest.mark.asyncio
 async def test_validation_error():
     """POST /query without required 'question' field should return 422."""
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    from httpx import ASGITransport
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         r = await ac.post("/query", json={})
     assert r.status_code == 422
 
@@ -89,7 +101,8 @@ async def test_validation_error_whitespace_query():
 @pytest.mark.asyncio
 async def test_streaming_validation_error():
     """POST /query/stream without required 'question' field should return 422."""
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    from httpx import ASGITransport
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         r = await ac.post("/query/stream", json={})
     assert r.status_code == 422
 
@@ -104,7 +117,8 @@ async def test_streaming_validation_error_whitespace_query():
 @pytest.mark.asyncio
 async def test_not_found():
     """Unknown path returns 404."""
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    from httpx import ASGITransport
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         r = await ac.get("/no-such-route")
     assert r.status_code == 404
 

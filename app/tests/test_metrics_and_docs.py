@@ -4,7 +4,8 @@ from app.main import app
 
 @pytest.mark.asyncio
 async def test_metrics_endpoint_exposes_histograms():
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    from httpx import ASGITransport
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         r = await ac.get("/metrics")
     assert r.status_code == 200
     text = r.text
@@ -15,7 +16,8 @@ async def test_metrics_endpoint_exposes_histograms():
 
 @pytest.mark.asyncio
 async def test_openapi_examples_present():
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    from httpx import ASGITransport
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         r = await ac.get("/openapi.json")
     schema = r.json()
 

@@ -53,6 +53,16 @@ jobs:
           pip install -r requirements/cpu.txt
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
+          
+      - name: Check GPU availability
+        run: |
+          python -c "
+          import faiss
+          import torch
+          print('FAISS GPUs:', faiss.get_num_gpus())
+          print('PyTorch CUDA available:', torch.cuda.is_available())
+          print('FAISS has StandardGpuResources:', hasattr(faiss, 'StandardGpuResources'))
+          "
 
       - name: Ruff (lint / format)
         continue-on-error: true
@@ -64,8 +74,17 @@ jobs:
           # Use a more permissive mypy configuration to avoid transformers internal errors
           mypy --config-file mypy.ini --ignore-missing-imports --no-error-summary app
 
-      - name: Pytest
-        run: pytest -q
+      - name: Pytest (CPU tests)
+        run: pytest -q -m "not gpu"
+        
+      - name: Pytest (GPU tests - if available)
+        run: |
+          if python -c "import faiss, torch; exit(0 if faiss.get_num_gpus() > 0 and torch.cuda.is_available() and hasattr(faiss, 'StandardGpuResources') else 1)" 2>/dev/null; then
+            echo "GPU available, running GPU tests..."
+            pytest -q -m "gpu"
+          else
+            echo "GPU not available, skipping GPU tests..."
+          fi
 
 # ───────────────────────────── 2) build & push Docker image ────────────────────────────
   docker:

@@ -17,7 +17,8 @@ def _get_healthz_count(metrics_text: str) -> float:
 @pytest.mark.asyncio
 async def test_metrics_middleware_counts():
     """Calling /healthz should increment Prometheus counters."""
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    from httpx import ASGITransport
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         # Snapshot before any request
         r_before = await ac.get("/metrics")
         before_cnt = _get_healthz_count(r_before.text)

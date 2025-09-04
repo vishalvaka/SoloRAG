@@ -32,6 +32,7 @@ try:
 except ImportError as e:
     skip_reason = f"Missing dependencies: {e}"
 
+# Skip all GPU tests if GPU is not available
 pytestmark = pytest.mark.skipif(not gpu_available, reason=skip_reason)
 
 
