@@ -54,9 +54,12 @@ You should see all **22** tests pass.
 ### Option A: Docker Compose (recommended)
 ```bash
 cd docker
-# CPU version
+# CPU version (default)
 docker compose up --build -d
-# GPU users: docker compose -f compose.gpu.yaml up --build -d
+# GPU users (optional retrieval acceleration):
+docker compose -f compose.gpu.yaml up --build -d
+## Allow retriever to use GPU (opt-in)
+# export FAISS_FORCE_CPU=0
 ```
 Services:
 * `backend` – FastAPI app on http://localhost:8000
@@ -64,6 +67,7 @@ Services:
 * `prometheus` – Metrics UI on http://localhost:9090
 
 Logs: `docker compose logs -f backend`.
+Caches: HF/Torch caches are persisted via volumes to speed up restarts.
 
 ### Option B: Pure Python Dev Server
 ```bash
@@ -101,7 +105,7 @@ docker compose up --build -d --pull always \
 |---------|-----|
 | Port 11434 already in use | `docker ps | grep 11434` then `docker rm -f <ID>` |
 | Tests fail randomly | Ensure `.venv` active; run `pip install -r requirements-dev.txt` |
-| Slow responses | Use GPU compose file or smaller quantised model (`q4`). |
+| Slow responses | Use smaller Ollama model or enable GPU retrieval (set `FAISS_FORCE_CPU=0`). |
 
 ---
 

@@ -15,7 +15,7 @@ graph TD
     end
     subgraph Containerised Stack
         B[FastAPI Backend]
-        C[GPU-Accelerated Retriever<br/>FAISS + CUDA]
+        C[Retriever<br/>FAISS (CPU by default; optional CUDA)]
         D[Prompt Builder]
         E[LLM ( Ollama )]
     end
@@ -39,21 +39,21 @@ graph TD
 * **Logging** – `structlog` outputs JSON logs; perfect for Grafana Loki.
 * **Testing** – pytest with `httpx.AsyncClient` gives ~95 % unit-test coverage.
 
-## 3. GPU-Accelerated Retrieval Layer
+## 3. Retrieval Layer (CPU by default; optional GPU)
 
 ### Index Types
-SoloRAG automatically selects the optimal FAISS index based on available hardware:
+SoloRAG runs on CPU by default for fastest startup. You can opt into GPU retrieval by setting `FAISS_FORCE_CPU=0`.
 
-* **CPU Mode**: Uses `IndexFlatIP` for exact similarity search
-* **GPU Mode**: Uses `IndexIVFFlat` with CUDA acceleration for approximate nearest neighbor search
+* **CPU Mode (default)**: Uses `IndexFlatIP` for exact similarity search
+* **GPU Mode (opt-in)**: Uses `IndexIVFFlat` with CUDA acceleration for approximate nearest neighbor search
 
 ### GPU Optimizations
-When CUDA is available (GPU Docker compose), the system automatically:
+When CUDA is available and enabled (`FAISS_FORCE_CPU=0`), the system automatically:
 
 * **GPU Index**: Moves FAISS index to GPU memory with FP16 optimization
 * **Batch Processing**: Optimizes search parameters for GPU throughput (8x overfetch minimum)
 * **Memory Management**: Configures GPU resources with 256MB temp memory allocation
-* **Embedding Acceleration**: Moves SentenceTransformer models to GPU for faster query encoding
+* **Embedding Acceleration**: Optionally moves SentenceTransformer models to GPU for faster query encoding
 * **Fallback Safety**: Gracefully falls back to CPU if GPU operations fail
 
 ### Index Building

@@ -3,8 +3,8 @@
 SoloRAG is a minimal, self-contained Retrieval-Augmented-Generation stack that lets you chat with your documents **entirely offline**. It's designed for easy setup and experimentation, supporting both CPU and GPU environments.
 
 *   **Backend**: Python with FastAPI
-*   **Retrieval**: Sentence-Transformers and a FAISS vector index with **GPU acceleration**
-*   **LLM**: Ollama-hosted model (defaults to `llama3:8b-instruct-q5_K_M`)
+*   **Retrieval**: Sentence-Transformers and a FAISS vector index (**CPU by default; optional GPU**)
+*   **LLM**: Ollama-hosted model (defaults to `tinyllama:latest` for fast startup)
 *   **Deployment**: A single Docker container for the entire stack.
 
 > 🔎 **Looking for the design rationale?** See [`docs/architecture.md`](docs/architecture.md).
@@ -16,9 +16,11 @@ SoloRAG is a minimal, self-contained Retrieval-Augmented-Generation stack that l
 
 ---
 
-## ⚡ GPU Acceleration
+## ⚡ GPU Acceleration (Optional)
 
-SoloRAG now features **CUDA-optimized FAISS indices** for dramatically faster vector search when running with GPU support. The system automatically detects GPU availability and uses the optimal index type.
+SoloRAG supports **CUDA-optimized FAISS** for dramatically faster vector search when running with GPU support. The system can use the GPU if enabled, but for fastest startup and broad compatibility, retrieval runs on CPU by default.
+
+> To enable GPU retrieval, set `FAISS_FORCE_CPU=0` in the backend environment (CPU is forced by default).
 
 ### 🚀 Performance Benefits
 
@@ -32,8 +34,8 @@ When using the GPU Docker configuration, you get:
 
 ### 🎯 Index Types
 
-* **CPU Mode**: `IndexFlatIP` for exact similarity search
-* **GPU Mode**: `IndexIVFFlat` with CUDA acceleration and optimized clustering
+* **CPU Mode (default)**: `IndexFlatIP` for exact similarity search
+* **GPU Mode (opt-in)**: `IndexIVFFlat` with CUDA acceleration and optimized clustering
 
 ### 📊 GPU vs CPU Comparison
 
@@ -62,7 +64,7 @@ cd SoloRAG
 
 ### 2. Run with Docker Compose
 
-You can launch the application in either CPU or GPU mode.
+You can launch the application in either CPU or GPU mode. The compose file also mounts HF/Torch cache volumes to speed up subsequent startups.
 
 #### **CPU Mode** (Default)
 This will run on any machine with Docker installed.
@@ -71,14 +73,14 @@ docker compose -f docker/compose.yaml up --build
 ```
 > **Note**: The first build might take a while as it downloads the base images and PyTorch binaries. Subsequent builds will be much faster. For detailed build logs, use `docker compose -f docker/compose.yaml build --progress=plain`.
 
-#### **🎮 GPU Mode** (Recommended for Performance)
+#### **🎮 GPU Mode** (Optional for Performance)
 This leverages your NVIDIA GPU for significantly faster inference and vector search.
 ```bash
 docker compose -f docker/compose.yaml -f docker/compose.gpu.yaml up --build
 ```
-This command layers the GPU-specific configuration over the base setup, ensuring the correct CUDA environment and dependencies are used.
+This layers the GPU-specific configuration over the base setup. To allow the retriever to use GPU, ensure the backend has `FAISS_FORCE_CPU=0`.
 
-**GPU Benefits:**
+**GPU Benefits (when enabled):**
 - ⚡ **10-20x faster** vector search with CUDA-optimized FAISS
 - 🏗️ **5-10x faster** index building with GPU clustering
 - 🧠 **Smart memory management** with FP16 optimization
@@ -90,6 +92,10 @@ This command layers the GPU-specific configuration over the base setup, ensuring
 Once running, check if GPU acceleration is active:
 
 ```bash
+# Ensure the backend is configured to allow GPU
+# (set in docker compose env or container env)
+export FAISS_FORCE_CPU=0
+
 # Check health endpoint for GPU status
 curl http://localhost:8000/healthz | jq
 
@@ -116,7 +122,7 @@ docker exec -it solorag-backend-gpu python scripts/test_gpu_faiss.py
 This will show detailed performance comparisons and verify your GPU setup.
 
 ### 5. Customizing the LLM
-By default, the application uses the `llama3:8b-instruct-q5_K_M` model. You can switch to any other model from the [Ollama Library](https://ollama.com/library) by setting the `OLLAMA_MODEL` environment variable.
+By default, the application uses `tinyllama:latest` for fast startup. You can switch to any other model from the [Ollama Library](https://ollama.com/library) by setting the `OLLAMA_MODEL` environment variable.
 
 Open `docker/compose.yaml` and modify the `environment` section for the `backend` service:
 ```yaml
@@ -126,12 +132,12 @@ services:
     ...
     environment:
       - OLLAMA_URL=http://localhost:11434
-      # Uncomment and set the model you want to use.
+      # Set the model you want to use.
       - OLLAMA_MODEL=mistral:7b-instruct-q5_K_M
 ```
 When you next run `docker compose -f docker/compose.yaml up`, the entrypoint script will automatically pull the specified model.
 
-> ⏳ **First-time startup can take a few minutes** because Ollama needs to download the LLM weights (~4-6 GB). You can monitor progress with:
+> ⏳ **First-time startup can take a few minutes** because Ollama may need to download LLM weights. We default to a small model to minimise this. You can monitor progress with:
 >
 > ```bash
 > docker compose logs -f backend
