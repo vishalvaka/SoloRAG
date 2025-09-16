@@ -40,29 +40,40 @@ if prompt := st.chat_input("Ask a question about Stripe payments…"):
         sources_container = st.container()
 
     async def fetch_stream(question: str):
-        async with httpx.AsyncClient(timeout=None) as client:
-            async with client.stream("POST", QUERY_ENDPOINT, json={"question": question}) as r:
-                buffer = ""
-                async for chunk in r.aiter_text():
-                    buffer += chunk
-                    if "[SOURCES]" in buffer:
-                        body, src = buffer.split("[SOURCES]", 1)
-                        answer_box.markdown(body)
-                        formatted_raw = src
-                        try:
-                            src_json = json.loads(src)
-                            formatted_raw = "\n".join(
-                                f"* {textwrap.shorten(s['text'], 120)} (score: {s['score']:.2f})" for s in src_json
-                            )
-                        except Exception:
-                            pass
+        retries = 8
+        backoff = 0.5
+        last_exc: Union[None, Exception] = None
+        for attempt in range(retries):
+            try:
+                async with httpx.AsyncClient(timeout=None) as client:
+                    async with client.stream("POST", QUERY_ENDPOINT, json={"question": question}) as r:
+                        buffer = ""
+                        async for chunk in r.aiter_text():
+                            buffer += chunk
+                            if "[SOURCES]" in buffer:
+                                body, src = buffer.split("[SOURCES]", 1)
+                                answer_box.markdown(body)
+                                formatted_raw = src
+                                try:
+                                    src_json = json.loads(src)
+                                    formatted_raw = "\n".join(
+                                        f"* {textwrap.shorten(s['text'], 120)} (score: {s['score']:.2f})" for s in src_json
+                                    )
+                                except Exception:
+                                    pass
 
-                        with sources_container.expander("Show Sources"):
-                            st.markdown(formatted_raw)
-                        return body, formatted_raw
-                    answer_box.markdown(buffer + " ▌")
-
-            # Fallback (should not hit)
+                                with sources_container.expander("Show Sources"):
+                                    st.markdown(formatted_raw)
+                                return body, formatted_raw
+                            answer_box.markdown(buffer + " ▌")
+            except Exception as e:
+                last_exc = e
+                await asyncio.sleep(backoff)
+                backoff = min(backoff * 2, 5)
+                continue
+        # Fallback after retries
+        if last_exc:
+            st.error(f"Backend not ready yet: {last_exc}")
         return "", ""
 
     # Fetch answer asynchronously

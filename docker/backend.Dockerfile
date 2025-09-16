@@ -65,6 +65,14 @@ COPY ./streamlit_app.py ./streamlit_app.py
 
 ENV OLLAMA_URL=http://localhost:11434
 
+# Pre-warm Hugging Face models at build time to avoid first-run downloads
+RUN python3 - <<'PY'
+from sentence_transformers import SentenceTransformer, CrossEncoder
+SentenceTransformer('intfloat/e5-base-v2')
+CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
+print('Prewarmed embedding and rerank models')
+PY
+
 # 3. Expose and launch
 EXPOSE 8000 8501
 ENTRYPOINT ["/entrypoint.sh"]

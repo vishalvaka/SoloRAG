@@ -7,6 +7,7 @@ from typing import AsyncGenerator
 # Local
 from .retrieval import get_answer
 from .retrieval import stream_answer, get_index_info
+from .retrieval import _ensure_initialized  # type: ignore
 from .logger import logger
 
 # Prometheus metrics
@@ -91,6 +92,14 @@ async def query_stream(q: Query) -> StreamingResponse:
 async def health() -> Health:
     """Enhanced health probe with index information."""
     try:
+        # Do not block health on heavy init; try a short, non-fatal kick-off
+        try:
+            # fire-and-forget: start init in the background if not initialized
+            # We intentionally don't await here to keep health fast
+            import asyncio
+            asyncio.create_task(_ensure_initialized())
+        except Exception:
+            pass
         index_info = get_index_info()
         return Health(
             status="ok",

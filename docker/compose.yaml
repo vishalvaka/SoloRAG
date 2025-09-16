@@ -12,6 +12,8 @@ services:
       - "8501:8501"  # Streamlit UI
     volumes:
       - ../artifacts:/app/artifacts:ro
+      - hf_cache:/root/.cache/huggingface
+      - torch_cache:/root/.cache/torch
     depends_on:
       - ollama
     restart: unless-stopped
@@ -21,7 +23,7 @@ services:
       # By default, the entrypoint uses llama3:8b-instruct-q5_K_M.
       # Uncomment the line below to use a different model.
       # The entrypoint script will automatically pull this model on startup.
-      # - OLLAMA_MODEL=mistral:7b-instruct-q5_K_M
+      - OLLAMA_MODEL=tinyllama:latest
 
   ollama:
     image: ollama/ollama:latest
@@ -43,3 +45,5 @@ services:
 
 volumes:
   ollama_data: {}
+  hf_cache: {}
+  torch_cache: {}

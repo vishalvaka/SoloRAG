@@ -14,18 +14,33 @@ until curl -sS http://localhost:11434/api/tags > /dev/null; do
   sleep 2
 done
 
-# Ensure the requested model is pulled (non-fatal if already present)
-ollama pull "$MODEL" || true
+# Defer the model pull to the background so it doesn't block service startup
+(
+  echo "Pulling Ollama model ($MODEL) in background …"
+  ollama pull "$MODEL" || true
+) &
 
 # Start FastAPI backend in background
 echo "Starting FastAPI backend..."
 uvicorn app.main:app --host 0.0.0.0 --port 8000 &
 BACKEND_PID=$!
 
-# Start Streamlit server in background
+# Do not block on FastAPI health; it may lazily warm models. Just give it a short head start.
+echo "Giving FastAPI a short head start …"
+sleep 2
+
+# Start Streamlit server in background (after backend is ready)
 echo "Starting Streamlit server..."
 streamlit run streamlit_app.py --server.port 8501 --server.address 0.0.0.0 --server.headless true &
 STREAMLIT_PID=$!
+
+# Kick off background prewarm of retrieval stack (FAISS + HF models)
+echo "Prewarming retrieval stack in background …"
+python - <<'PY' &
+import asyncio
+from app.retrieval import _ensure_initialized
+asyncio.run(_ensure_initialized())
+PY
 
 # Function to handle shutdown
 cleanup() {

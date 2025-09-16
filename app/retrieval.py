@@ -49,55 +49,62 @@ def _detect_gpu_capability() -> bool:
 
 GPU_AVAILABLE = _detect_gpu_capability()
 
-# ─── load index & models once at import time ──────────────────────────────
-logger.info("loading_index", details="Loading FAISS index & embeddings …")
-
-# Load the index and check if we should move it to GPU
-cpu_index = faiss.read_index(str(INDEX_FILE))
-TEXTS = np.load(META_FILE, allow_pickle=True)
-
-if GPU_AVAILABLE:
-    try:
-        # Move index to GPU with optimizations
-        gpu_resources = faiss.StandardGpuResources()
-        
-        # Configure GPU memory and options for stability
-        gpu_resources.setTempMemory(128 * 1024 * 1024)  # 128MB temp memory (more conservative)
-        gpu_options = faiss.GpuClonerOptions()
-        gpu_options.useFloat16 = False  # Use FP32 for stability (can enable FP16 later if needed)
-        gpu_options.usePrecomputed = True  # Use precomputed tables when available
-        
-        # Clone index to GPU
-        INDEX = faiss.index_cpu_to_gpu(gpu_resources, 0, cpu_index, gpu_options)
-        logger.info("index_gpu", details="Successfully moved FAISS index to GPU")
-        
-        # Clean up CPU index to save memory
-        del cpu_index
-        
-    except Exception as e:
-        # Check if this is a CUBLAS error (common with certain FAISS GPU builds)
-        if "cublas" in str(e).lower() or "CUBLAS_STATUS" in str(e):
-            logger.warning("index_gpu", details=f"CUBLAS error detected: {e}. This is a known compatibility issue with certain FAISS GPU builds. Using CPU index.")
-        else:
-            logger.warning("index_gpu", details=f"Failed to move index to GPU: {e}, using CPU index")
-        INDEX = cpu_index
+# Force CPU indexing by default for faster startup and simpler behavior
+# Set FAISS_FORCE_CPU=0 to allow GPU usage again.
+try:
+    if os.getenv("FAISS_FORCE_CPU", "1") == "1":
         GPU_AVAILABLE = False
-else:
-    INDEX = cpu_index
+        logger.info("gpu_forced_off", details="FAISS forced to CPU mode (FAISS_FORCE_CPU=1)")
+except Exception:
+    GPU_AVAILABLE = False
 
-# Load embedding and reranking models
-EMBED   = SentenceTransformer("intfloat/e5-base-v2")
-RERANK  = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+# ─── lazy initialization (non-blocking import) ────────────────────────────
+INDEX = None
+TEXTS = None
+EMBED = None
+RERANK = None
+_initialized = False
+_init_lock: asyncio.Lock = asyncio.Lock()
+_gpu_upgrade_task: asyncio.Task | None = None
 
-# Move embedding model to GPU if available
-if GPU_AVAILABLE:
-    try:
-        import torch
-        if torch.cuda.is_available():
-            EMBED = EMBED.to('cuda')
-            logger.info("embedding_gpu", details="Moved embedding model to GPU")
-    except Exception as e:
-        logger.warning("embedding_gpu", details=f"Failed to move embedding model to GPU: {e}")
+async def _ensure_initialized() -> None:
+    """Initialize heavy resources on first use.
+    Safe to call multiple times; concurrent callers will serialize on the lock.
+    """
+    global INDEX, TEXTS, EMBED, RERANK, _initialized, GPU_AVAILABLE
+    if _initialized:
+        return
+    async with _init_lock:
+        if _initialized:
+            return
+        logger.info("loading_index", details="Loading FAISS index & embeddings …")
+        # Load FAISS artefacts (prefer memory-mapped for fast startup)
+        try:
+            io_flags = getattr(faiss, "IO_FLAG_MMAP", 0)
+            cpu_index = faiss.read_index(str(INDEX_FILE), io_flags) if io_flags else faiss.read_index(str(INDEX_FILE))
+        except Exception:
+            cpu_index = faiss.read_index(str(INDEX_FILE))
+        TEXTS = np.load(META_FILE, allow_pickle=True)
+
+        # Always use CPU index (fast startup)
+        INDEX = cpu_index
+
+        # Load embedding and reranking models
+        EMBED = SentenceTransformer("intfloat/e5-base-v2")
+        RERANK = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+
+        # Move embedding model to GPU if available
+        if GPU_AVAILABLE:
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    EMBED = EMBED.to('cuda')
+                    logger.info("embedding_gpu", details="Moved embedding model to GPU")
+            except Exception as e:
+                logger.warning("embedding_gpu", details=f"Failed to move embedding model to GPU: {e}")
+
+        _initialized = True
+        logger.info("init_complete", details="Retrieval stack initialized")
 
 # ─── Ollama config ────────────────────────────────────────────────────────
 OLLAMA_URL   = os.getenv("OLLAMA_URL", "http://localhost:11434")
@@ -131,22 +138,13 @@ def _search(query: str, k: int = 4, overfetch: int = 5) -> list:
     params = _get_optimal_search_params(k, overfetch)
     
     # Encode query with GPU acceleration if available
-    if GPU_AVAILABLE:
-        import torch
-        with torch.cuda.device(0):
-            q_vec_np = np.asarray(EMBED.encode([query], normalize_embeddings=True), dtype="float32")
-    else:
-        q_vec_np = np.asarray(EMBED.encode([query], normalize_embeddings=True), dtype="float32")
+    q_vec_np = np.asarray(EMBED.encode([query], normalize_embeddings=True), dtype="float32")
     
     # Perform vector search with optimized parameters
     search_k = k * params['overfetch']
     
-    if GPU_AVAILABLE:
-        # GPU search can handle larger batches efficiently
-        _, idx = INDEX.search(q_vec_np, search_k)
-    else:
-        # CPU search with smaller batches
-        _, idx = INDEX.search(q_vec_np, search_k)
+    # CPU search
+    _, idx = INDEX.search(q_vec_np, search_k)
     
     # Extract passages and rerank
     passages = [TEXTS[i] for i in idx[0]]
@@ -170,6 +168,7 @@ async def get_answer(question: str) -> tuple:
     Returns (markdown_answer, source_snippets)
     source_snippets: List[{"text": str, "score": float}]
     """
+    await _ensure_initialized()
     ctx = _search(question)
     prompt = build_prompt(question, ctx)
     answer = await call_ollama(prompt)
@@ -178,6 +177,7 @@ async def get_answer(question: str) -> tuple:
 # ─── streaming variant ───────────────────────────────────────────────────
 async def stream_answer(question: str) -> AsyncGenerator[str, None]:
     """Async generator yielding answer chunks; yields sources at end as JSON string."""
+    await _ensure_initialized()
     ctx = _search(question)
     prompt = build_prompt(question, ctx)
 
@@ -189,10 +189,11 @@ async def stream_answer(question: str) -> AsyncGenerator[str, None]:
 # ─── utility functions ───────────────────────────────────────────────────
 def get_index_info() -> dict:
     """Return information about the current index configuration."""
-    return {
+    info = {
         "gpu_enabled": GPU_AVAILABLE,
-        "index_type": type(INDEX).__name__,
+        "index_type": type(INDEX).__name__ if INDEX is not None else "uninitialized",
         "num_vectors": INDEX.ntotal if hasattr(INDEX, 'ntotal') else "unknown",
         "embedding_model": "intfloat/e5-base-v2",
-        "rerank_model": "cross-encoder/ms-marco-MiniLM-L-6-v2"
+        "rerank_model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
     }
+    return info
