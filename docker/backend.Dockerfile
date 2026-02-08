@@ -24,7 +24,7 @@ ARG BUILD_MODE
 # For nvidia/cuda base images, we need to install python first.
 # For python:slim base images, these packages are mostly present.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        libgomp1 curl gnupg ca-certificates python3 python3-pip \
+        libgomp1 curl gnupg ca-certificates python3 python3-pip zstd \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
