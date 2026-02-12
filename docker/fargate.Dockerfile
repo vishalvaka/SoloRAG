@@ -26,8 +26,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean
 
 # 2. Optional: install corporate CA certificate
-COPY ${CUSTOM_CA_CERT:-/dev/null} /usr/local/share/ca-certificates/corporate-ca.crt
-RUN update-ca-certificates 2>/dev/null || true
+#    Only copies if CUSTOM_CA_CERT build-arg points to a real file.
+RUN --mount=type=bind,target=/build-context,source=. \
+    if [ -n "${CUSTOM_CA_CERT}" ] && [ -f "/build-context/${CUSTOM_CA_CERT}" ]; then \
+        cp "/build-context/${CUSTOM_CA_CERT}" /usr/local/share/ca-certificates/corporate-ca.crt && \
+        update-ca-certificates; \
+    fi
 
 # 3. Create non-root user
 RUN useradd --create-home --shell /bin/bash appuser
