@@ -62,6 +62,16 @@ async def _setup_db():
         await conn.run_sync(Base.metadata.drop_all)
 
 
+@pytest_asyncio.fixture(autouse=True, scope="session")
+async def _dispose_engines():
+    """Dispose all SQLAlchemy engines after the test session to prevent hangs."""
+    yield
+    await _test_engine.dispose()
+    # Also dispose the app's engine (imported at module level in app.db)
+    from app.db import engine as app_engine
+    await app_engine.dispose()
+
+
 async def _override_get_db() -> AsyncGenerator[AsyncSession, None]:
     async with _test_session_factory() as session:
         yield session
