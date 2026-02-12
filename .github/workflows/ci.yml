@@ -11,94 +11,182 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  IMAGE_NAME: ghcr.io/${{ github.repository }}/backend
-  OLLAMA_MODEL: tinyllama:latest
+  PYTHON_VERSION: "3.12"
 
 jobs:
-# ───────────────────────────── 1) lint + type-check + test ─────────────────────────────
+# ───────────────────────────── 1) Lint + Security Scan (Code) ──────────────
+  lint-and-sast:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-dev-${{ hashFiles('requirements-dev.txt') }}
+          restore-keys: ${{ runner.os }}-pip-dev-
+
+      - name: Install dev tools
+        run: pip install -r requirements-dev.txt
+
+      - name: Ruff (lint + format check)
+        run: ruff check . --output-format=github
+        continue-on-error: true
+
+      - name: Bandit (Python SAST)
+        run: bandit -r app/ -c pyproject.toml --format json --output bandit-report.json || true
+
+      - name: Upload Bandit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit-report.json
+
+# ───────────────────────────── 2) Tests + Coverage ─────────────────────────
   test:
     runs-on: ubuntu-latest
 
-    services:
-      ollama:
-        image: ollama/ollama:latest
-        ports:
-          - 11434:11434
+    env:
+      APP_ENV: test
+      DATABASE_URL: sqlite+aiosqlite:///
+      LLM_BACKEND: ollama
+      OLLAMA_URL: http://fake-ollama:11434
+      OLLAMA_MODEL: test-model
+      VECTOR_BACKEND: faiss
+      FAISS_FORCE_CPU: "1"
+      SESSION_BACKEND: memory
+      CACHE_BACKEND: none
 
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Cache pip
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
+          restore-keys: ${{ runner.os }}-pip-
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Pre-pull Ollama model (tinyllama)
-        run: |
-          echo "Pulling tinyllama:latest for CI …"
-          curl -sS -X POST http://localhost:11434/api/pull \
-               -H "Content-Type: application/json" \
-               -d '{"name":"tinyllama:latest"}'
-
-      - name: Install runtime & dev deps
+      - name: Install dependencies
         run: |
           pip install -r requirements/common.txt
           pip install -r requirements/cpu.txt
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
-          
-      - name: Check GPU availability
+          pip install aiosqlite
+
+      - name: Run tests with coverage
         run: |
-          python -c "
-          import faiss
-          import torch
-          print('FAISS GPUs:', faiss.get_num_gpus())
-          print('PyTorch CUDA available:', torch.cuda.is_available())
-          print('FAISS has StandardGpuResources:', hasattr(faiss, 'StandardGpuResources'))
-          "
+          pytest app/tests/ \
+            --cov=app \
+            --cov-report=xml:coverage.xml \
+            --cov-report=term-missing \
+            --junitxml=junit.xml \
+            -v
 
-      - name: Ruff (lint / format)
-        continue-on-error: true
-        run: ruff check . --output-format=github
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
 
-      - name: Mypy (static types)
-        continue-on-error: true
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: junit.xml
+
+# ───────────────────────────── 3) Dependency vulnerability scan ────────────
+  dep-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
         run: |
-          # Use a more permissive mypy configuration to avoid transformers internal errors
-          mypy --config-file mypy.ini --ignore-missing-imports --no-error-summary app
+          pip install -r requirements/common.txt
+          pip install pip-audit safety
 
-      - name: Pytest (CPU tests)
-        run: pytest -q -m "not gpu"
-        
-      - name: Pytest (GPU tests - if available)
-        run: |
-          if python -c "import faiss, torch; exit(0 if faiss.get_num_gpus() > 0 and torch.cuda.is_available() and hasattr(faiss, 'StandardGpuResources') else 1)" 2>/dev/null; then
-            echo "GPU available, running GPU tests..."
-            pytest -q -m "gpu"
-          else
-            echo "GPU not available, skipping GPU tests..."
-          fi
+      - name: pip-audit (known vulnerabilities)
+        run: pip-audit --format json --output pip-audit-report.json || true
 
-# ───────────────────────────── 2) build & push Docker image ────────────────────────────
-  docker:
+      - name: Upload pip-audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-audit-report
+          path: pip-audit-report.json
+
+# ───────────────────────────── 4) Container security scan (Trivy) ─────────
+  container-scan:
     needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build Fargate image for scanning
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/fargate.Dockerfile
+          push: false
+          load: true
+          tags: solorag-fargate:scan
+
+      - name: Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: solorag-fargate:scan
+          format: table
+          exit-code: "0"   # warn but don't block (change to "1" to enforce)
+          severity: CRITICAL,HIGH
+
+      - name: Trivy SARIF output
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: solorag-fargate:scan
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+
+      - name: Upload Trivy SARIF
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-sarif
+          path: trivy-results.sarif
+
+# ───────────────────────────── 5) Build & push to GHCR ────────────────────
+  docker-ghcr:
+    needs: [test, lint-and-sast]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
     permissions:
       contents: read
-      packages: write    # needed to push to GHCR
+      packages: write
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: docker/setup-buildx-action@v3
 
       - uses: docker/login-action@v3
@@ -107,13 +195,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Determine a lowercase image tag (GHCR requires repository names to be lowercase)
       - name: Set image name
         id: vars
         run: |
           IMAGE="ghcr.io/${{ github.repository }}/backend"
-          IMAGE_LOWER=$(echo "$IMAGE" | tr '[:upper:]' '[:lower:]')
-          echo "image=$IMAGE_LOWER" >> "$GITHUB_OUTPUT"
+          echo "image=$(echo $IMAGE | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
       - name: Build & push backend image (CPU)
         uses: docker/build-push-action@v5
@@ -128,10 +214,42 @@ jobs:
             ${{ steps.vars.outputs.image }}:latest
             ${{ steps.vars.outputs.image }}:${{ github.sha }}
 
-# ───────────────────────────── 3) optional deploy stub (k8s, fly.io, etc.) ─────────────
-#  deploy:
-#    needs: docker
-#    runs-on: ubuntu-latest
-#    steps:
-#      - name: Deploy to <your-platform>
-#        run: echo "Add deployment commands or composite action here"
+# ───────────────────────────── 6) Build & push to ECR ─────────────────────
+  docker-ecr:
+    needs: [test, container-scan]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write   # OIDC
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+      # OIDC-based AWS authentication (no long-lived keys)
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set ECR image URI
+        id: ecr-vars
+        run: |
+          echo "image=${{ steps.ecr-login.outputs.registry }}/${{ secrets.ECR_REPO }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build & push Fargate image to ECR
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/fargate.Dockerfile
+          push: true
+          tags: |
+            ${{ steps.ecr-vars.outputs.image }}:latest
+            ${{ steps.ecr-vars.outputs.image }}:${{ github.sha }}

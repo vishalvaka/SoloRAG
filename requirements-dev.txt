@@ -1,37 +1,18 @@
-# ───────── Core micro-service ─────────
-fastapi==0.111.0
-uvicorn[standard]==0.29.0
-
-# ───────── Retrieval stack ────────────
-sentence-transformers>=2.6.0,<2.8.0     # 2.7.0 is latest on PyPI
-# Note: FAISS is installed via requirements/cpu.txt or requirements/gpu.txt
-# Don't install faiss-cpu here to avoid conflicts with faiss-gpu
-# faiss-cpu==1.8.0  # Commented out to prevent conflicts
-numpy==1.26.4
-
-# ───────── Scraping & utilities ───────
-requests==2.32.2
-beautifulsoup4==4.12.3
-tqdm==4.66.4
-python-dotenv==1.0.1
-
-# Optional: JS-rendered crawling
-playwright==1.44.0        # comment out if you don’t need it
-nest-asyncio==1.6.0
-
-# ───────── Observability ──────────────
-prometheus-client==0.20.0
-
-# ───────── Typing / data models ───────
-pydantic==2.7.1
-typing-extensions==4.12.1
-types-requests==2.32.0.20241016  # Type stubs for requests library
-
-nest_asyncio
-
+# ───────── Testing ────────────────────
 pytest==8.2.0
-ruff==0.4.3            # linter / formatter
-mypy==1.10.0
 pytest-asyncio==0.23.6
-httpx==0.27.0          # test client for FastAPI
-pre-commit==3.7.0
+pytest-cov==5.0.0
+httpx==0.27.0                # AsyncClient for FastAPI testing
+aiosqlite==0.22.0            # In-memory SQLite for test DB
+
+# ───────── Linting & formatting ──────
+ruff==0.4.3
+mypy==1.10.0
+
+# ───────── Security scanning ─────────
+bandit==1.7.8                # Python SAST (security issues in code)
+safety==3.2.4                # Known vulnerability scanner for deps
+pip-audit==2.7.3             # Audit installed packages for vulns
+
+# ───────── Type stubs ────────────────
+types-requests==2.32.0.20241016

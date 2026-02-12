@@ -1,4 +1,5 @@
 services:
+  # ── Application ─────────────────────────────────────────────────────
   backend:
     image: solorag-backend-cpu
     build:
@@ -15,16 +16,77 @@ services:
       - hf_cache:/root/.cache/huggingface
       - torch_cache:/root/.cache/torch
     depends_on:
-      - ollama
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+      dynamodb-local:
+        condition: service_started
     restart: unless-stopped
     environment:
-      - OLLAMA_URL=http://localhost:11434
-      - BACKEND_URL=http://localhost:8000
-      # By default, the entrypoint uses llama3:8b-instruct-q5_K_M.
-      # Uncomment the line below to use a different model.
-      # The entrypoint script will automatically pull this model on startup.
+      # App
+      - APP_ENV=local
+      # Database (PostgreSQL)
+      - DATABASE_URL=postgresql+asyncpg://solorag:solorag@postgres:5432/solorag
+      # LLM
+      - LLM_BACKEND=ollama
+      - OLLAMA_URL=http://ollama:11434
       - OLLAMA_MODEL=tinyllama:latest
+      # Vector store
+      - VECTOR_BACKEND=faiss
+      - FAISS_FORCE_CPU=1
+      # Session store (DynamoDB Local)
+      - SESSION_BACKEND=dynamodb
+      - DYNAMODB_ENDPOINT=http://dynamodb-local:8000
+      - DYNAMODB_TABLE=solorag-sessions
+      - DYNAMODB_REGION=us-east-1
+      # Cache
+      - CACHE_BACKEND=redis
+      - REDIS_URL=redis://redis:6379/0
+      # Streamlit
+      - BACKEND_URL=http://localhost:8000
 
+  # ── PostgreSQL ──────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: solorag
+      POSTGRES_PASSWORD: solorag
+      POSTGRES_DB: solorag
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U solorag"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Redis ───────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # ── DynamoDB Local ──────────────────────────────────────────────────
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    ports:
+      - "8100:8000"  # mapped to 8100 to avoid conflict with FastAPI
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb"]
+    restart: unless-stopped
+
+  # ── Ollama ──────────────────────────────────────────────────────────
   ollama:
     image: ollama/ollama:latest
     ports:
@@ -33,6 +95,7 @@ services:
       - ollama_data:/root/.ollama
     restart: unless-stopped
 
+  # ── Prometheus ──────────────────────────────────────────────────────
   prometheus:
     image: prom/prometheus:latest
     volumes:
@@ -44,6 +107,7 @@ services:
       - backend
 
 volumes:
+  pg_data: {}
   ollama_data: {}
   hf_cache: {}
   torch_cache: {}
